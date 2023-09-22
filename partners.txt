@@ -1,0 +1,6 @@
+Dhruv Batra db3sgv
+Kunsh Singh bca2nk
+
+Collaborated together entire way in person, using VSCode Live Share.
+There were a couple hours where one person had to step away for a bit but the person working 
+caught them up on what they missed and it was mostly while debugging.
