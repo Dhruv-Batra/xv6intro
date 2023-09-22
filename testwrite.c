@@ -11,16 +11,20 @@ main(int argc, char *argv[])
   int temp = -1;
 
   setwritecount(0);
-  printf(1, "%s","Druv likes to play with OS");
 
   temp = writecount();
 
   printf(1,"%d\n", temp);
-  printf(1, "%s","Druv likes to play with OS");
 
   setwritecount(0);
 
   write(1, s, 5);
+
+  temp = writecount();
+
+  printf(1,"%d\n", temp);
+
+  printf(1, "%s","This is a test - Hello ");
 
   temp = writecount();
 
