@@ -16,6 +16,20 @@
 #include "file.h"
 #include "fcntl.h"
 
+int writecounter = 0;
+
+int sys_writecount(void){
+  return writecounter;
+}
+
+int sys_setwritecount(void){
+  int n;
+  if(argint(0, &n) < 0){
+    return -1; //failure
+  }
+  writecounter = n;
+  return 0; //successful
+}
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -84,9 +98,11 @@ sys_write(void)
   struct file *f;
   int n;
   char *p;
+  
 
   if(argfd(0, 0, &f) < 0 || argint(2, &n) < 0 || argptr(1, &p, n) < 0)
     return -1;
+  writecounter+=1;
   return filewrite(f, p, n);
 }
 

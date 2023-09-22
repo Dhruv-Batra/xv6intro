@@ -176,6 +176,7 @@ mkfs: mkfs.c fs.h param.h
 UPROGS=\
 	_cat\
 	_echo\
+	_testwrite\
 	_forktest\
 	_grep\
 	_init\

@@ -26,6 +26,8 @@ int sleep(int);
 int uptime(void);
 int yield(void);
 int shutdown(void);
+int writecount(void);
+int setwritecount(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
