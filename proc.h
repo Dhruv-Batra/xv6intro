@@ -1,3 +1,9 @@
+#ifndef PROC_H
+#define PROC_H
+
+#include "spinlock.h"
+
+
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID
@@ -41,6 +47,8 @@ struct proc {
   char *kstack;                // Bottom of kernel stack for this process
   enum procstate state;        // Process state
   int pid;                     // Process ID
+  int times_scheduled;         // * Added Parameter to track how many times process has been scheduled
+  int tickets;                 // * Added Parameter to track the lottery number of the process
   struct proc *parent;         // Parent process
   struct trapframe *tf;        // Trap frame for current syscall
   struct context *context;     // swtch() here to run process
@@ -56,3 +64,7 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+
+void sleep(void *chan, struct spinlock *lk);
+
+#endif

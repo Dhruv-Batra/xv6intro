@@ -6,8 +6,12 @@
 #include "memlayout.h"
 #include "mmu.h"
 #include "proc.h"
+#include "getprocessesinfo.h"
 
-
+extern struct {
+  struct spinlock lock;
+  struct proc proc[NPROC];
+} ptable;
 
 int
 sys_fork(void)
@@ -79,6 +83,46 @@ sys_sleep(void)
   return 0;
 }
 
+int
+sys_settickets(void)
+{
+  int n;
+
+  if(argint(0, &n) < 0)
+    return -1;
+  
+  myproc()->tickets = n;
+  return 0;
+}
+
+int 
+sys_getprocessesinfo(void){
+
+  struct proc *pt;
+  int num_proc_counter = 0;
+
+  struct processes_info  *p;
+
+  if(argptr(0, (void*)&p, sizeof(*p)) < 0)
+    return -1;
+
+  acquire(&ptable.lock);
+    for(pt = ptable.proc; pt < &ptable.proc[NPROC]; pt++){
+      if(pt->state == UNUSED){
+        continue;
+      }
+      p->pids[num_proc_counter] = pt->pid;
+      p->times_scheduled[num_proc_counter] = pt->times_scheduled;
+      p->tickets[num_proc_counter] = pt->tickets;
+
+      num_proc_counter++;
+    }
+  
+    p->num_processes = num_proc_counter;
+  release(&ptable.lock);
+  return 0;
+}
+
 // return how many clock tick interrupts have occurred
 // since start.
 int
@@ -105,4 +149,12 @@ int sys_shutdown(void)
   return 0;
 }
 
+// int sys_getprocessesinfo(void){
+//   struct processes_info* proc_inst;
 
+//   if(argptr(0, (void*)&proc_inst, sizeof(*proc_inst)) < 0)
+//     return -1;
+  
+//   return getprocessesinfo(proc_inst);
+            
+// }

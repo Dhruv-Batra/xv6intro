@@ -6,13 +6,15 @@
 #include "x86.h"
 #include "proc.h"
 #include "spinlock.h"
+#include "getprocessesinfo.h"
+#include "lcg_parkmiller.h"
+
+static struct proc *initproc;
 
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
 } ptable;
-
-static struct proc *initproc;
 
 int nextpid = 1;
 extern void forkret(void);
@@ -111,6 +113,7 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+  p->times_scheduled = 0;
 
   return p;
 }
@@ -148,6 +151,8 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
+  p->tickets = 10;
+  p->times_scheduled = 0;
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -199,6 +204,8 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+  // The number of tickets should be inherited by children created via fork
+  np->tickets = curproc->tickets;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
@@ -311,8 +318,10 @@ wait(void)
   }
 }
 
+
 //PAGEBREAK: 42
-// Per-CPU process scheduler.
+// Per-CPU process 
+
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
 //  - choose a process to run
@@ -325,35 +334,104 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    //int between 1 and max amount tickets
+    int lottery_range = 0;
+
+    //iterate through figure out max num tickets
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
+      if (p->state != RUNNABLE){ //process not ready
         continue;
+      }
+      lottery_range+=p->tickets;
+      // cprintf("PID %d, Tickets: %d, Times Scheduled %d\n", p->pid, p->tickets, p->times_scheduled);
+    }
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+    if (lottery_range == 0){
+      release(&ptable.lock); 
+      continue;
+    }
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+    //select winning lottery number
+    int winning_ticket = random_at_most(lottery_range);
+    int running_total = 0;
 
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+    //else find lottery process
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+
+      if (p->state != RUNNABLE){ //process not ready
+        continue;
+      }
+      
+      running_total += p->tickets;
+
+      if(running_total >= winning_ticket){
+        p->times_scheduled++;
+        // Switch to chosen process.  It is the process's job
+        // to release ptable.lock and then reacquire it
+        // before jumping back to us.
+        c->proc = p;
+        switchuvm(p);
+        p->state = RUNNING;
+
+        swtch(&(c->scheduler), p->context);
+        switchkvm();
+
+        // Process is done running for now.
+        // It should have changed its p->state before coming back.
+        c->proc = 0;
+        break;
+      }
+
+
+     
     }
     release(&ptable.lock);
-
   }
 }
+// void
+// scheduler(void)
+// {
+//   struct proc *p;
+//   struct cpu *c = mycpu();
+//   c->proc = 0;
+  
+//   for(;;){
+//     // Enable interrupts on this processor.
+//     sti();
+
+//     // Loop over process table looking for process to run.
+//     acquire(&ptable.lock);
+//     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+//       if(p->state != RUNNABLE)
+//         continue;
+
+//       // Switch to chosen process.  It is the process's job
+//       // to release ptable.lock and then reacquire it
+//       // before jumping back to us.
+//       c->proc = p;
+//       switchuvm(p);
+//       p->state = RUNNING;
+
+//       swtch(&(c->scheduler), p->context);
+//       switchkvm();
+
+//       // Process is done running for now.
+//       // It should have changed its p->state before coming back.
+//       c->proc = 0;
+//     }
+//     release(&ptable.lock);
+
+//   }
+// }
+
 
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
@@ -454,19 +532,18 @@ sleep(void *chan, struct spinlock *lk)
 //PAGEBREAK!
 // Wake up all processes sleeping on chan.
 // The ptable lock must be held.
-static void
-wakeup1(void *chan)
+static void wakeup1(void *chan)
 {
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
     if(p->state == SLEEPING && p->chan == chan)
       p->state = RUNNABLE;
+  }
 }
 
 // Wake up all processes sleeping on chan.
-void
-wakeup(void *chan)
+void wakeup(void *chan)
 {
   acquire(&ptable.lock);
   wakeup1(chan);
@@ -476,8 +553,7 @@ wakeup(void *chan)
 // Kill the process with the given pid.
 // Process won't exit until it returns
 // to user space (see trap in trap.c).
-int
-kill(int pid)
+int kill(int pid)
 {
   struct proc *p;
 
@@ -532,3 +608,4 @@ procdump(void)
     cprintf("\n");
   }
 }
+
