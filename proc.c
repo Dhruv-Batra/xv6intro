@@ -366,13 +366,13 @@ scheduler(void)
     //else find lottery process
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
 
-      if (p->state != RUNNABLE){ //process not ready
+      if (p->state != RUNNABLE && p->state != RUNNING){ //process not ready
         continue;
       }
       
       running_total += p->tickets;
 
-      if(running_total >= winning_ticket){
+      if(running_total > winning_ticket){
         p->times_scheduled++;
         // Switch to chosen process.  It is the process's job
         // to release ptable.lock and then reacquire it
