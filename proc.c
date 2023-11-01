@@ -148,6 +148,8 @@ userinit(void)
   // because the assignment might not be atomic.
   acquire(&ptable.lock);
 
+  p->tickets = 10;
+  p->times_scheduled = 0;
   p->state = RUNNABLE;
 
   release(&ptable.lock);
@@ -199,6 +201,10 @@ fork(void)
   np->sz = curproc->sz;
   np->parent = curproc;
   *np->tf = *curproc->tf;
+
+  // The number of tickets should be inherited by children created via fork
+  np->tickets = curproc->tickets;
+  np->times_scheduled = 0;
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
