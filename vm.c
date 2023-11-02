@@ -10,6 +10,7 @@
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
 
+
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
 void
@@ -387,8 +388,70 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 
 //PAGEBREAK!
 // Blank page.
-//PAGEBREAK!
-// Blank page.
-//PAGEBREAK!
-// Blank page.
 
+
+int get_pagetable(int pid, uint address, pde_t *pgdir){
+  //get page table entry, xv6 has 2 level page table;
+  pte_t *pte = walkpgdir(pgdir,(void *)address, 0);
+  if (pte && (*pte & PTE_P)){
+     return (int)*pte; 
+  }
+  return 0;
+}
+
+
+int dump_pagetable(int pid, int sz, pde_t* pgdir){
+  cprintf("START PAGE TABLE (pid %d)\n", pid);
+  int present = 0;
+  int writable = 0;
+  int user_mode = 0;
+  // int page_size = 0;
+  int k = 0;
+  int flags = 0;
+  uint va = 0;
+
+  for(int i = 0; i < NPDENTRIES; i++){ //vm.c
+      pde_t pde = pgdir[i];
+      if (!(pde && PTE_P)) continue;
+
+      for (int j = 0; j < NPTENTRIES; j++){
+        va = (i << PDXSHIFT) | (j << PTXSHIFT);
+        if (va >= sz) break;
+          pte_t* pte = walkpgdir(pgdir, (void*)va, 0); //vm.c
+
+          if(!pte || !(*pte & PTE_P)){
+            // panic("copyuvm: pte should exist"); //vm.c TODO: should we panic here?
+            continue;
+          }
+          //print virtual memory address
+          // pte = walkpgdir(pgdir, (void *) i, 0  );
+
+          flags = PTE_FLAGS(*pte); //vm.c
+
+          present = PTE_P & flags;
+          writable = PTE_W & flags;
+          user_mode = PTE_U & flags;
+          if (!present) { 
+            continue;
+          }
+          uint pa = PTE_ADDR(*pte);
+          if (*pte && writable && user_mode){
+            cprintf("%d P U W %x\n",k,pa);
+          }
+          else if (user_mode){
+            cprintf("%d P U - %x\n",k,pa);
+          }
+          else if (writable){
+            cprintf("%d P - W %x\n",k,pa);
+          }
+          else{
+            cprintf("%d P - - %x\n",k,pa);
+          }
+          k++;
+        }
+    }
+
+
+  cprintf("END PAGE TABLE\n");
+  return 0;
+}

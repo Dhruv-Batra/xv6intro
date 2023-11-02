@@ -538,3 +538,46 @@ procdump(void)
     cprintf("\n");
   }
 }
+int get_pagetable_entry(int pid, uint address){
+  //get page dir
+  struct proc *p;
+  int val = 0;
+
+  acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ //proc.c
+      if (p->state == UNUSED){
+        continue;
+      }
+      if(p->pid == pid){
+        pde_t *pgdir = p->pgdir;
+        if(!pgdir){ 
+          return 0; 
+        }
+        val = get_pagetable(pid, address, pgdir);
+        // break;
+      }
+  }
+
+   release(&ptable.lock);
+   return val;
+
+}
+int dump_ptable(int pid){
+
+  struct proc *p;
+  int sz = 0;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){ //proc.c
+      if (p->state == UNUSED){
+        continue;
+      }
+      if(p->pid == pid){
+        pde_t *pgdir = p->pgdir;
+        sz = p->sz >> 12;
+        dump_pagetable(pid, sz, pgdir);
+        // break;
+      }
+  }
+  release(&ptable.lock);
+  return 0;
+}

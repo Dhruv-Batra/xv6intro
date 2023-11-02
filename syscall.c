@@ -109,7 +109,7 @@ extern int sys_writecount(void);
 extern int sys_setwritecount(void);
 extern int sys_getpagetableentry(void);
 extern int sys_isphysicalpagefree(void);
-extern int dumppagetable(void);
+extern int sys_dumppagetable(void);
 
 
 
@@ -139,9 +139,9 @@ static int (*syscalls[])(void) = {
 [SYS_shutdown] sys_shutdown,
 [SYS_writecount] sys_writecount,
 [SYS_setwritecount] sys_setwritecount,
-[SYS_getpagetableentry] getpagetableentry,
-[SYS_isphysicalpagefree] isphysicalpagefree
-[SYS_dumppagetable], dumppagetable
+[SYS_getpagetableentry] sys_getpagetableentry,
+[SYS_isphysicalpagefree] sys_isphysicalpagefree,
+[SYS_dumppagetable] sys_dumppagetable,
 };
 
 void

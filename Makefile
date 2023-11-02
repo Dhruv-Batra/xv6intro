@@ -177,7 +177,9 @@ UPROGS=\
 	_cat\
 	_echo\
 	_testwrite\
-	_pte_tool\
+	_ptetool\
+	_pp_test\
+	_pp_suite\
 	_forktest\
 	_grep\
 	_init\
@@ -306,7 +308,7 @@ tar:
 	cp dist/* dist/.gdbinit.tmpl /tmp/xv6
 	(cd /tmp; tar cf - xv6) | gzip >xv6-rev10-uva1.tar.gz  
 
-SUBMIT_FILENAME=db3sgv.bca2nk.xv6-submission-$(shell date +%Y%m%d%H%M%S).tar.gz
+SUBMIT_FILENAME=db3sgv.bca2nk.xv6-page-submission-$(shell date +%Y%m%d%H%M%S).tar.gz
 
 submit:
 	@tar -zcf $(SUBMIT_FILENAME) *.c *.h *.S *.ld Makefile $(wildcard *.txt) $(wildcard *.md) $(EXTRA) $(FILES)

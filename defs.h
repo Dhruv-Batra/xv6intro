@@ -69,6 +69,7 @@ char*           kalloc(void);
 void            kfree(char*);
 void            kinit1(void*, void*);
 void            kinit2(void*, void*);
+int             is_physicalpage_free(int ppn);
 
 // kbd.c
 void            kbdintr(void);
@@ -189,6 +190,11 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+int             get_pagetable_entry(int pid, uint address);
+int             dump_pagetable(int pid, int sz, pde_t* pgdir);
+int             get_pagetable(int pid, uint address, pde_t *pgdir);
+int             dump_ptable(int pid);
+
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

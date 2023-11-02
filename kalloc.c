@@ -95,3 +95,25 @@ kalloc(void)
   return (char*)r;
 }
 
+int is_physicalpage_free(int ppn){
+  //iterate through free list 
+  struct run *r;
+  // struct run *pa = P2V(ppn << PTXSHIFT);
+  // if ((char*) P2V(ppn << PTXSHIFT) >= (char*) PHYSTOP) return -1; //line 65 - checks if OOB in memory
+  if(kmem.use_lock){
+    acquire(&kmem.lock);
+  }
+  for (r = kmem.freelist; r; r = r->next){
+    uint r_pa = V2P(r) >> 12;
+    if (ppn == r_pa){ //vm.c
+      if(kmem.use_lock){
+        release(&kmem.lock);
+      }
+      return 1;
+    }
+  }
+  if(kmem.use_lock){
+    release(&kmem.lock);
+  }
+  return 0;
+}
