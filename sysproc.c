@@ -51,8 +51,10 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
+  myproc()->sz = myproc()->sz + n; //modify size 
+  //but don't allocate the space
+  // if(growproc(n) < 0)
+  //   return -1;
   return addr;
 }
 

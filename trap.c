@@ -32,6 +32,66 @@ idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
+//WALKPGDIR
+static pte_t *
+walkpgdir(pde_t *pgdir, const void *va, int alloc)
+{
+  pde_t *pde;
+  pte_t *pgtab;
+
+  pde = &pgdir[PDX(va)];
+  if(*pde & PTE_P){
+    pgtab = (pte_t*)P2V(PTE_ADDR(*pde));
+  } else {
+    if(!alloc || (pgtab = (pte_t*)kalloc()) == 0)
+      return 0;
+    // Make sure all those PTE_P bits are zero.
+    memset(pgtab, 0, PGSIZE);
+    // The permissions here are overly generous, but they can
+    // be further restricted by the permissions in the page table
+    // entries, if necessary.
+    *pde = V2P(pgtab) | PTE_P | PTE_W | PTE_U;
+  }
+  return &pgtab[PTX(va)];
+}
+
+void page_fault_handler(struct trapframe *tf){
+    uint address = rcr2();
+    // cprintf("Address %x\n", address);
+    struct proc *p = myproc();
+
+    if (address >= KERNBASE || address >= p->sz) {
+        cprintf("cpu%d: Page Fault: address out of bounds\n", cpuid());
+        p->killed = 1;
+        return;
+    }
+
+    if (address >= 0x8000 && address < 0x9000){
+        cprintf("cpu%d: Page Fault: guard page", cpuid());
+        p->killed = 1;
+        return;
+    }
+
+    pte_t *pte = walkpgdir(p->pgdir, (void *) address, 1);
+    if (!pte || (*pte & PTE_U)) {
+        cprintf("Failed to walkpgdir\n");
+        p->killed = 1;
+        return;
+    }
+
+    char* mem = kalloc();
+    if (!mem) {
+        cprintf("out of memory\n");
+        p->killed = 1;
+        return;
+    }
+    memset(mem, 0, PGSIZE);
+
+    *pte = V2P(mem) | PTE_U | PTE_W | PTE_P;
+
+}
+
+
 //PAGEBREAK: 41
 void
 trap(struct trapframe *tf)
@@ -47,6 +107,9 @@ trap(struct trapframe *tf)
   }
 
   switch(tf->trapno){
+  case T_PGFLT:
+    page_fault_handler(tf);
+    break;
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
       acquire(&tickslock);
@@ -80,18 +143,19 @@ trap(struct trapframe *tf)
 
   //PAGEBREAK: 13
   default:
-    if(myproc() == 0 || (tf->cs&3) == 0){
-      // In kernel, it must be our mistake.
-      cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
-              tf->trapno, cpuid(), tf->eip, rcr2());
-      panic("trap");
-    }
-    // In user space, assume process misbehaved.
-    cprintf("pid %d %s: trap %d err %d on cpu %d "
-            "eip 0x%x addr 0x%x--kill proc\n",
-            myproc()->pid, myproc()->name, tf->trapno,
-            tf->err, cpuid(), tf->eip, rcr2());
-    myproc()->killed = 1;
+      // Panic case
+      if(myproc() == 0 || (tf->cs&3) == 0){
+        // In kernel, it must be our mistake.
+        cprintf("unexpected trap %d from cpu %d eip %x (cr2=0x%x)\n",
+                tf->trapno, cpuid(), tf->eip, rcr2());
+        panic("trap");
+      }
+      // In user space, assume process misbehaved.
+      cprintf("pid %d %s: trap %d err %d on cpu %d "
+              "eip 0x%x addr 0x%x--kill proc\n",
+              myproc()->pid, myproc()->name, tf->trapno,
+              tf->err, cpuid(), tf->eip, rcr2());
+      myproc()->killed = 1;
   }
 
   // Force process exit if it has been killed and is in user space.
